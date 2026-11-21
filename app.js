@@ -307,9 +307,9 @@ async function vBeranda() {
   try {
     const [b, rg] = await Promise.all([api('beranda'), api('ringkasan')]);
     syncWaktu(b.waktu); S.profil = b.profil; S.config = b.config; simpanSesi();
-    const rec = b.hariIni, c = b.config, kerja = b.waktu.hari <= 5;
+    const rec = b.hariIni, c = b.config, libur = b.waktu.libur, kerja = b.waktu.hari <= 5 && !libur;
     let hari;
-    if (!kerja) hari = vacio('clock', 'Hari ini libur', 'Absensi hanya dilakukan Senin–Jumat.');
+    if (!kerja) hari = vacio('clock', 'Hari ini libur', libur || 'Absensi hanya dilakukan Senin–Jumat.');
     else if (!rec) {
       hari = `<p class="sub" style="margin:0 0 12px">Belum ada catatan kehadiran hari ini.</p><button class="btn" data-go="masuk">${ico('login')} Absen Masuk</button>
         <button class="btn btn-ghost" data-go="status" style="margin-top:10px">Izin / Sakit / Dinas Luar</button>`;
@@ -339,7 +339,7 @@ async function vAbsen(jenis) {
   const rec = b.hariIni, cfg = b.config, judul = jenis === 'masuk' ? 'Absen Masuk' : 'Absen Pulang';
   const ke = (v, t) => `<button class="btn btn-ghost" data-go="${v}">${t}</button>`;
   let blok = '';
-  if (b.waktu.hari > 5) blok = infoKartu('Hari ini libur', 'Absensi hanya Senin–Jumat.', ke('beranda', 'Ke Beranda'));
+  if (b.waktu.hari > 5 || b.waktu.libur) blok = infoKartu('Hari ini libur', b.waktu.libur || 'Absensi hanya Senin–Jumat.', ke('beranda', 'Ke Beranda'));
   else if (jenis === 'masuk' && rec) blok = infoKartu('Sudah tercatat hari ini', `Status: ${rec.status}${rec.masuk ? ' · masuk ' + rec.masuk : ''}`, ke('beranda', 'Ke Beranda'));
   else if (jenis === 'pulang' && !rec) blok = infoKartu('Belum absen masuk', 'Absen masuk dulu sebelum absen pulang.', ke('masuk', 'Absen Masuk'));
   else if (jenis === 'pulang' && !['Hadir', 'Terlambat', 'Dinas Luar'].includes(rec.status)) blok = infoKartu('Tidak perlu absen pulang', `Statusmu hari ini: ${rec.status}.`, ke('beranda', 'Ke Beranda'));
@@ -489,10 +489,10 @@ async function vADash() {
     const r = d.ringkas;
     setView(`<div style="display:flex;justify-content:space-between;align-items:center"><div><h1>Dashboard</h1><p class="sub" style="margin:0">${fTglPanjang(new Date(d.tanggal + 'T12:00:00Z'))}</p></div>
       <button class="btn btn-ghost btn-sm" id="seg" aria-label="Muat ulang">${ico('refresh')}</button></div>
-      <h2>Hari ini</h2><div class="tiles">${tile(r.hadir, 'Hadir', 'hadir')}${tile(r.terlambat, 'Terlambat', 'terlambat')}${tile(r.izin, 'Izin', 'izin')}${tile(r.sakit, 'Sakit', 'sakit')}${tile(r.dl, 'Dinas Luar', 'dl')}${tile(r.belum, 'Belum absen')}</div>
+      <h2>Hari ini</h2>${d.libur ? `<div class="chip ok">${ico('check')}<span>Hari libur: ${esc(d.libur)}. Absensi ditutup.</span></div>` : ''}<div class="tiles">${tile(r.hadir, 'Hadir', 'hadir')}${tile(r.terlambat, 'Terlambat', 'terlambat')}${tile(r.izin, 'Izin', 'izin')}${tile(r.sakit, 'Sakit', 'sakit')}${tile(r.dl, 'Dinas Luar', 'dl')}${tile(r.belum, 'Belum absen')}</div>
       <div class="card">${d.daftar.length ? d.daftar.map((g, i) => `<div class="list-item" data-i="${i}"><div class="avatar">${esc(depan(g.nama).slice(0, 1).toUpperCase())}</div>
         <div class="grow"><div class="t">${esc(g.nama)}</div><div class="s">${esc(g.mapel || '-')}</div></div>
-        <div class="rh">${g.rec ? badge(g.rec.status) + `<div>${g.rec.masuk || '-'} – ${g.rec.pulang || '-'}</div>` : badge('Belum absen')}</div></div>`).join('')
+        <div class="rh">${g.rec ? badge(g.rec.status) + `<div>${g.rec.masuk || '-'} – ${g.rec.pulang || '-'}</div>` : badge(d.libur ? 'Libur' : 'Belum absen')}</div></div>`).join('')
         : vacio('users', 'Belum ada guru', 'Tambahkan guru di menu Guru.')}</div>
       <h2>Bulan ini (semua guru)</h2>${tilesRingkas(rg.bulanIni)}
       <h2>Kehadiran per bulan ${rg.tahun}</h2><div class="card chart">${chartBulan(rg.perBulan)}${legend()}</div>`);
@@ -594,6 +594,7 @@ async function vASet() {
       <div class="row"><div><label>Latitude sekolah</label><input class="input" id="s-lat" inputmode="decimal" value="${v(c.lat)}"></div><div><label>Longitude sekolah</label><input class="input" id="s-lng" inputmode="decimal" value="${v(c.lng)}"></div></div>
       <button class="btn btn-ghost" id="lok" style="margin-top:12px">${ico('pin')} Pakai lokasi saya sekarang</button>
       <p class="err" id="err"></p><button class="btn" id="simpan">Simpan Pengaturan</button></div>
+      <h2>Hari libur nasional &amp; cuti bersama</h2><div class="card" id="libur-box">${skel(60)}</div>
       <button class="btn btn-ghost" id="pin">Ganti PIN Admin</button><button class="btn btn-ghost" id="out" style="margin-top:10px">${ico('logout')} Keluar</button>`);
     $('#lok').onclick = () => {
       const btn = $('#lok'); busy(btn, true, 'Membaca lokasi…');
@@ -611,6 +612,30 @@ async function vASet() {
       busy(btn, false);
     };
     $('#pin').onclick = sheetGantiPin; $('#out').onclick = () => keluar(false);
+    const muatLibur = async () => {
+      const box = $('#libur-box');
+      if (!box) return;
+      try {
+        const h = isoHari(nowWIB());
+        const l = (await api('libur_daftar')).filter((x) => x.tanggal >= h);
+        box.innerHTML = `<p class="sub">Absensi ditutup otomatis pada tanggal di bawah ini. Sabtu dan Minggu sudah otomatis libur.</p>
+          ${l.length ? l.map((x) => `<div class="kv"><span>${fTgl(x.tanggal)} ${x.tanggal.slice(0, 4)} · ${esc(x.ket)}</span><button class="btn btn-ghost btn-sm" data-del="${esc(x.tanggal)}">Hapus</button></div>`).join('') : vacio('inbox', 'Belum ada hari libur', 'Tambahkan tanggal libur nasional atau cuti bersama.')}
+          <label>Tanggal</label><input class="input" type="date" id="l-tgl">
+          <label>Keterangan</label><input class="input" id="l-ket" maxlength="80" placeholder="Contoh: Hari Natal">
+          <p class="err" id="l-err"></p><button class="btn" id="l-add">${ico('plus')} Tambah Hari Libur</button>`;
+        $$('[data-del]', box).forEach((b) => b.onclick = async () => {
+          busy(b, true, '');
+          try { await api('libur_hapus', { tanggal: b.dataset.del }); toast('Hari libur dihapus.'); muatLibur(); }
+          catch (e) { busy(b, false); toast(e.message, true); }
+        });
+        $('#l-add').onclick = async () => {
+          const btn = $('#l-add'); $('#l-err').textContent = ''; busy(btn, true, 'Menyimpan…');
+          try { await api('libur_simpan', { tanggal: $('#l-tgl').value, ket: $('#l-ket').value }); toast('Hari libur ditambahkan.'); muatLibur(); }
+          catch (e) { $('#l-err').textContent = e.message; busy(btn, false); }
+        };
+      } catch (e) { box.innerHTML = vacio('inbox', 'Gagal memuat', e.message); }
+    };
+    muatLibur();
   } catch (e) { errView(e, () => go('a_set')); }
 }
 

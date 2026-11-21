@@ -1,6 +1,6 @@
 // Service worker: membuat aplikasi bisa dipasang (PWA) dan membuka cepat.
 // Data absensi TIDAK pernah disimpan di cache; semua data selalu diambil langsung dari server.
-const VERSI = 'absen-v3';
+const VERSI = 'absen-v4';
 const ASET = ['./', './index.html', './style.css', './app.js', './config.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {

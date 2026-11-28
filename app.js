@@ -5,7 +5,7 @@
 const CFG = window.APP_CONFIG || {};
 const S = { token: '', role: '', profil: null, config: null, offset: 0, view: '', installEvt: null };
 const cleanups = [];
-const BK = { 'Hadir': 'hadir', 'Terlambat': 'terlambat', 'Izin': 'izin', 'Sakit': 'sakit', 'Dinas Luar': 'dl' };
+const BK = { 'Hadir': 'hadir', 'Terlambat': 'terlambat', 'Izin': 'izin', 'Sakit': 'sakit', 'Dinas Luar': 'dl', 'Lembur': 'lembur', 'Alpa': 'alpa' };
 const WARNA = ['hadir', 'terlambat', 'izin', 'sakit', 'dl'];
 const NAMA_WARNA = { hadir: 'Hadir', terlambat: 'Terlambat', izin: 'Izin', sakit: 'Sakit', dl: 'Dinas Luar' };
 const GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
@@ -201,7 +201,7 @@ function makeCam(host, onChange) {
 /* ---------- Komponen tampilan ---------- */
 const badge = (s) => `<span class="badge ${BK[s] || ''}">${esc(s)}</span>`;
 const tile = (n, l, c) => `<div class="tile"><div class="n">${n}</div><div class="l">${c ? `<span class="dot" style="background:var(--${c})"></span>` : ''}${l}</div></div>`;
-const tilesRingkas = (r) => `<div class="tiles">${tile(r.hadir, 'Hadir', 'hadir')}${tile(r.terlambat, 'Terlambat', 'terlambat')}${tile(r.izin, 'Izin', 'izin')}${tile(r.sakit, 'Sakit', 'sakit')}${tile(r.dl, 'Dinas Luar', 'dl')}${tile(fJm(r.jam), 'Total jam')}</div>`;
+const tilesRingkas = (r) => `<div class="tiles t4">${tile(r.hadir, 'Hadir', 'hadir')}${tile(r.terlambat, 'Terlambat', 'terlambat')}${tile(r.izin, 'Izin', 'izin')}${tile(r.sakit, 'Sakit', 'sakit')}${tile(r.dl, 'Dinas Luar', 'dl')}${tile(r.alpa || 0, 'Alpa', 'alpa')}${tile(fJm((r.lemburMenit || 0) / 60), 'Lembur', 'lembur')}${tile(fJm(r.jam), 'Total jam')}</div>`;
 const legend = () => `<div class="legend">${WARNA.map((w) => `<span><i style="background:var(--${w})"></i>${NAMA_WARNA[w]}</span>`).join('')}</div>`;
 
 function chartBulan(pb) {
@@ -307,14 +307,13 @@ async function vBeranda() {
   try {
     const [b, rg] = await Promise.all([api('beranda'), api('ringkasan')]);
     syncWaktu(b.waktu); S.profil = b.profil; S.config = b.config; simpanSesi();
-    const rec = b.hariIni, c = b.config, libur = b.waktu.libur, kerja = !libur;
+    const rec = b.hariIni, c = b.config, libur = b.waktu.libur, kerja = b.waktu.hari <= 5 && !libur;
     let hari;
-    if (b.waktu.libur) blok = infoKartu('Hari ini libur', b.waktu.libur, ke('beranda', 'Ke Beranda'));
-    else if (!rec) {
-      hari = `<p class="sub" style="margin:0 0 12px">Belum ada catatan kehadiran hari ini.</p><button class="btn" data-go="masuk">${ico('login')} Absen Masuk</button>
-        <button class="btn btn-ghost" data-go="status" style="margin-top:10px">Izin / Sakit / Dinas Luar</button>`;
+    if (!rec) {
+      hari = `<p class="sub" style="margin:0 0 12px">${libur ? 'Hari libur: ' + esc(libur) + '. Jika kamu bekerja hari ini, absen akan tercatat sebagai <b>Lembur</b>.' : 'Belum ada catatan kehadiran hari ini.'}</p><button class="btn" data-go="masuk">${ico('login')} Absen Masuk${libur ? ' (Lembur)' : ''}</button>
+        ${libur ? '' : '<button class="btn btn-ghost" data-go="status" style="margin-top:10px">Izin / Sakit / Dinas Luar</button>'}`;
     } else {
-      const bisaPulang = ['Hadir', 'Terlambat', 'Dinas Luar'].includes(rec.status) && !rec.pulang;
+      const bisaPulang = ['Hadir', 'Terlambat', 'Dinas Luar', 'Lembur'].includes(rec.status) && !rec.pulang;
       hari = `<div class="kv"><span>Status</span>${badge(rec.status)}</div><div class="kv"><span>Masuk</span><b>${rec.masuk || '-'}</b></div>
         <div class="kv"><span>Pulang</span><b>${rec.pulang || '-'}</b></div>${rec.jam ? `<div class="kv"><span>Jam kerja</span><b>${fJm(rec.jam)}</b></div>` : ''}
         ${rec.ket ? `<div class="kv"><span>Keterangan</span><b>${esc(rec.ket)}</b></div>` : ''}
@@ -339,29 +338,36 @@ async function vAbsen(jenis) {
   const rec = b.hariIni, cfg = b.config, judul = jenis === 'masuk' ? 'Absen Masuk' : 'Absen Pulang';
   const ke = (v, t) => `<button class="btn btn-ghost" data-go="${v}">${t}</button>`;
   let blok = '';
-  if (b.waktu.libur) blok = infoKartu('Hari ini libur', b.waktu.libur, ke('beranda', 'Ke Beranda'));
-  else if (jenis === 'masuk' && rec) blok = infoKartu('Sudah tercatat hari ini', `Status: ${rec.status}${rec.masuk ? ' · masuk ' + rec.masuk : ''}`, ke('beranda', 'Ke Beranda'));
+  if (jenis === 'masuk' && rec) blok = infoKartu('Sudah tercatat hari ini', `Status: ${rec.status}${rec.masuk ? ' · masuk ' + rec.masuk : ''}`, ke('beranda', 'Ke Beranda'));
   else if (jenis === 'pulang' && !rec) blok = infoKartu('Belum absen masuk', 'Absen masuk dulu sebelum absen pulang.', ke('masuk', 'Absen Masuk'));
-  else if (jenis === 'pulang' && !['Hadir', 'Terlambat', 'Dinas Luar'].includes(rec.status)) blok = infoKartu('Tidak perlu absen pulang', `Statusmu hari ini: ${rec.status}.`, ke('beranda', 'Ke Beranda'));
+  else if (jenis === 'pulang' && !['Hadir', 'Terlambat', 'Dinas Luar', 'Lembur'].includes(rec.status)) blok = infoKartu('Tidak perlu absen pulang', `Statusmu hari ini: ${rec.status}.`, ke('beranda', 'Ke Beranda'));
   else if (jenis === 'pulang' && rec.pulang) blok = infoKartu('Sudah absen pulang', `Tercatat pukul ${rec.pulang}.`, ke('beranda', 'Ke Beranda'));
   if (blok) {
     setView(blok); $$('[data-go]', $('main')).forEach((x) => x.addEventListener('click', () => go(x.dataset.go))); return;
   }
 
   const dl = rec && rec.status === 'Dinas Luar';
+  // Sabtu/Minggu/libur nasional (absen masuk) dan pulang dari Lembur: tidak dibatasi radius sekolah
+  const bebas = !!dl || (jenis === 'masuk' && !!b.waktu.libur) || (jenis === 'pulang' && !!rec && rec.status === 'Lembur');
   setView(`<h1>${judul}</h1><p class="sub">Foto diambil langsung dari kamera. Jam dicatat otomatis oleh server (WIB).</p>
+    ${b.waktu.libur && jenis === 'masuk' ? `<div class="chip ok">${ico('clock')}<span>Hari libur: ${esc(b.waktu.libur)}. Absen hari ini tercatat sebagai Lembur.</span></div>` : ''}
     <div class="chip" id="gps">${ico('pin')}<span>Mencari lokasi…</span></div><div id="camhost"></div>
     <p class="err" id="err"></p><button class="btn" id="kirim" disabled>${jenis === 'masuk' ? ico('login') : ico('logout')} Kirim ${judul}</button>
-    ${jenis === 'masuk' ? '<button class="btn btn-ghost" id="lain" style="margin-top:10px">Izin / Sakit / Dinas Luar</button>' : ''}`);
+    ${jenis === 'masuk' && !b.waktu.libur ? '<button class="btn btn-ghost" id="lain" style="margin-top:10px">Izin / Sakit / Dinas Luar</button>' : ''}`);
   let pos = null, foto = null;
   const kirim = $('#kirim');
-  const cekSiap = () => { kirim.disabled = !(foto && (dl || (pos && pos.ok))); };
+  const cekSiap = () => { kirim.disabled = !(foto && (bebas || (pos && pos.ok))); };
   const cam = makeCam($('#camhost'), (d) => { foto = d; cekSiap(); });
   gpsWatch((p) => {
     const chip = $('#gps'); if (!chip) return;
-    if (p.err) { pos = null; chip.className = 'chip bad'; chip.lastChild.textContent = p.err; cekSiap(); return; }
+    if (p.err) {
+      pos = null;
+      if (bebas && !dl) { chip.className = 'chip'; chip.lastChild.textContent = 'Lokasi belum terbaca, tetapi hari ini kamu tetap bisa absen tanpa batas radius.'; }
+      else { chip.className = 'chip bad'; chip.lastChild.textContent = p.err; }
+      cekSiap(); return;
+    }
     pos = { lat: p.lat, lng: p.lng, acc: p.acc, ok: false };
-    if (dl) { pos.ok = true; chip.className = 'chip ok'; chip.lastChild.textContent = 'Lokasi tercatat (dinas luar tidak dibatasi radius).'; }
+    if (bebas) { pos.ok = true; chip.className = 'chip ok'; chip.lastChild.textContent = dl ? 'Lokasi tercatat (dinas luar tidak dibatasi radius).' : 'Lokasi tercatat (hari libur: tidak dibatasi radius sekolah).'; }
     else if (cfg.lat == null) { chip.className = 'chip bad'; chip.lastChild.textContent = 'Titik lokasi sekolah belum diatur oleh admin.'; }
     else {
       const j = jarakM(p.lat, p.lng, cfg.lat, cfg.lng);
@@ -489,10 +495,10 @@ async function vADash() {
     const r = d.ringkas;
     setView(`<div style="display:flex;justify-content:space-between;align-items:center"><div><h1>Dashboard</h1><p class="sub" style="margin:0">${fTglPanjang(new Date(d.tanggal + 'T12:00:00Z'))}</p></div>
       <button class="btn btn-ghost btn-sm" id="seg" aria-label="Muat ulang">${ico('refresh')}</button></div>
-      <h2>Hari ini</h2>${d.libur ? `<div class="chip ok">${ico('check')}<span>Hari libur: ${esc(d.libur)}. Absensi ditutup.</span></div>` : ''}<div class="tiles">${tile(r.hadir, 'Hadir', 'hadir')}${tile(r.terlambat, 'Terlambat', 'terlambat')}${tile(r.izin, 'Izin', 'izin')}${tile(r.sakit, 'Sakit', 'sakit')}${tile(r.dl, 'Dinas Luar', 'dl')}${tile(r.belum, 'Belum absen')}</div>
+      <h2>Hari ini</h2>${d.libur ? `<div class="chip ok">${ico('check')}<span>Hari libur: ${esc(d.libur)}. Guru yang tetap bekerja tercatat Lembur.</span></div>` : ''}<div class="tiles t4">${tile(r.hadir, 'Hadir', 'hadir')}${tile(r.terlambat, 'Terlambat', 'terlambat')}${tile(r.izin, 'Izin', 'izin')}${tile(r.sakit, 'Sakit', 'sakit')}${tile(r.dl, 'Dinas Luar', 'dl')}${tile(r.lembur, 'Lembur', 'lembur')}${tile(r.alpa, 'Alpa', 'alpa')}${tile(r.belum, 'Belum absen')}</div>
       <div class="card">${d.daftar.length ? d.daftar.map((g, i) => `<div class="list-item" data-i="${i}"><div class="avatar">${esc(depan(g.nama).slice(0, 1).toUpperCase())}</div>
         <div class="grow"><div class="t">${esc(g.nama)}</div><div class="s">${esc(g.mapel || '-')}</div></div>
-        <div class="rh">${g.rec ? badge(g.rec.status) + `<div>${g.rec.masuk || '-'} – ${g.rec.pulang || '-'}</div>` : badge(d.libur ? 'Libur' : 'Belum absen')}</div></div>`).join('')
+        <div class="rh">${g.rec ? badge(g.rec.status) + `<div>${g.rec.masuk || '-'} – ${g.rec.pulang || '-'}</div>` : badge(g.status || (d.libur ? 'Libur' : 'Belum absen'))}</div></div>`).join('')
         : vacio('users', 'Belum ada guru', 'Tambahkan guru di menu Guru.')}</div>
       <h2>Bulan ini (semua guru)</h2>${tilesRingkas(rg.bulanIni)}
       <h2>Kehadiran per bulan ${rg.tahun}</h2><div class="card chart">${chartBulan(rg.perBulan)}${legend()}</div>`);
@@ -618,7 +624,7 @@ async function vASet() {
       try {
         const h = isoHari(nowWIB());
         const l = (await api('libur_daftar')).filter((x) => x.tanggal >= h);
-        box.innerHTML = `<p class="sub">Absensi ditutup otomatis pada tanggal di bawah ini. Sabtu dan Minggu sudah otomatis libur.</p>
+        box.innerHTML = `<p class="sub">Tanggal di bawah ini dianggap libur: guru tidak dihitung Alpa, dan yang tetap bekerja tercatat Lembur. Sabtu dan Minggu sudah otomatis libur.</p>
           ${l.length ? l.map((x) => `<div class="kv"><span>${fTgl(x.tanggal)} ${x.tanggal.slice(0, 4)} · ${esc(x.ket)}</span><button class="btn btn-ghost btn-sm" data-del="${esc(x.tanggal)}">Hapus</button></div>`).join('') : vacio('inbox', 'Belum ada hari libur', 'Tambahkan tanggal libur nasional atau cuti bersama.')}
           <label>Tanggal</label><input class="input" type="date" id="l-tgl">
           <label>Keterangan</label><input class="input" id="l-ket" maxlength="80" placeholder="Contoh: Hari Natal">

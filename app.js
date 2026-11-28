@@ -307,9 +307,9 @@ async function vBeranda() {
   try {
     const [b, rg] = await Promise.all([api('beranda'), api('ringkasan')]);
     syncWaktu(b.waktu); S.profil = b.profil; S.config = b.config; simpanSesi();
-    const rec = b.hariIni, c = b.config, libur = b.waktu.libur, kerja = b.waktu.hari <= 5 && !libur;
+    const rec = b.hariIni, c = b.config, libur = b.waktu.libur, kerja = !libur;
     let hari;
-    if (!kerja) hari = vacio('clock', 'Hari ini libur', libur || 'Absensi hanya dilakukan Senin–Jumat.');
+    if (b.waktu.libur) blok = infoKartu('Hari ini libur', b.waktu.libur, ke('beranda', 'Ke Beranda'));
     else if (!rec) {
       hari = `<p class="sub" style="margin:0 0 12px">Belum ada catatan kehadiran hari ini.</p><button class="btn" data-go="masuk">${ico('login')} Absen Masuk</button>
         <button class="btn btn-ghost" data-go="status" style="margin-top:10px">Izin / Sakit / Dinas Luar</button>`;
@@ -339,7 +339,7 @@ async function vAbsen(jenis) {
   const rec = b.hariIni, cfg = b.config, judul = jenis === 'masuk' ? 'Absen Masuk' : 'Absen Pulang';
   const ke = (v, t) => `<button class="btn btn-ghost" data-go="${v}">${t}</button>`;
   let blok = '';
-  if (b.waktu.hari > 5 || b.waktu.libur) blok = infoKartu('Hari ini libur', b.waktu.libur || 'Absensi hanya Senin–Jumat.', ke('beranda', 'Ke Beranda'));
+  if (b.waktu.libur) blok = infoKartu('Hari ini libur', b.waktu.libur, ke('beranda', 'Ke Beranda'));
   else if (jenis === 'masuk' && rec) blok = infoKartu('Sudah tercatat hari ini', `Status: ${rec.status}${rec.masuk ? ' · masuk ' + rec.masuk : ''}`, ke('beranda', 'Ke Beranda'));
   else if (jenis === 'pulang' && !rec) blok = infoKartu('Belum absen masuk', 'Absen masuk dulu sebelum absen pulang.', ke('masuk', 'Absen Masuk'));
   else if (jenis === 'pulang' && !['Hadir', 'Terlambat', 'Dinas Luar'].includes(rec.status)) blok = infoKartu('Tidak perlu absen pulang', `Statusmu hari ini: ${rec.status}.`, ke('beranda', 'Ke Beranda'));
